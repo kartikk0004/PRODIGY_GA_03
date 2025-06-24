@@ -1,1 +1,2 @@
 # PRODIGY_GA_03
+In this task, you are to implement a straightforward text generation algorithm utilizing Markov chains. The objective is to develop a statistical model that estimates the likelihood of a character or word based on its preceding character(s) or word(s). By leveraging the principles of Markov chains, the model will generate coherent text by predicting the next element in a sequence from its observed history.
