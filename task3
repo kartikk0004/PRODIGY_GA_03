@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Text Generation with Markov Chains</title>
+<style>
+  /* Import Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+  /* Reset & base */
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #1e1b4b, #2a2360);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Container max width for large desktop */
+  .container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 48px;
+      padding: 48px 32px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .container {
+      padding: 64px 64px;
+    }
+  }
+
+  header, footer {
+    background: rgba(36, 32, 90, 0.9);
+    backdrop-filter: blur(12px);
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1, footer p {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.3rem;
+  }
+
+  /* Hamburger menu */
+  #menu-toggle {
+    display: none;
+  }
+  .hamburger {
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 28px;
+    height: 24px;
+  }
+  .hamburger span {
+    display: block;
+    height: 3px;
+    background: #fff;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+  nav.mobile-nav {
+    display: none;
+    flex-direction: column;
+    background: rgba(36,32,90,0.95);
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: 100%;
+    padding: 16px 0;
+    z-index: 150;
+  }
+  nav.mobile-nav a {
+    color: white;
+    text-decoration: none;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  nav.mobile-nav a:hover,
+  nav.mobile-nav a:focus {
+    background-color: #5147b1;
+  }
+  #menu-toggle:checked + .hamburger > span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+  }
+  #menu-toggle:checked + .hamburger > span:nth-child(2) {
+    opacity: 0;
+  }
+  #menu-toggle:checked + .hamburger > span:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+  }
+  #menu-toggle:checked ~ nav.mobile-nav {
+    display: flex;
+  }
+
+  /* Desktop nav is always visible on ≥768px */
+  nav.desktop-nav {
+    display: none;
+  }
+  @media (min-width: 768px) {
+    .hamburger {
+      display: none;
+    }
+    nav.mobile-nav {
+      display: none !important;
+    }
+    nav.desktop-nav {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+    nav.desktop-nav a {
+      color: white;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 1.1rem;
+      transition: color 0.3s ease;
+    }
+    nav.desktop-nav a:hover,
+    nav.desktop-nav a:focus {
+      color: #a0aaff;
+      outline: none;
+    }
+  }
+
+  /* Section styles */
+  section {
+    background: rgba(50, 47, 110, 0.85);
+    border-radius: 16px;
+    padding: 24px 32px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  section h2 {
+    font-weight: 700;
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    border-bottom: 3px solid #4a55ff;
+    width: fit-content;
+    padding-bottom: 4px;
+  }
+
+  section p {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  /* Markov UI */
+  #inputText {
+    width: 100%;
+    border-radius: 12px;
+    border: none;
+    padding: 12px 16px;
+    font-size: 1rem;
+    resize: vertical;
+    min-height: 120px;
+    background-color: rgba(255 255 255 / 0.1);
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    transition: background-color 0.3s ease;
+  }
+  #inputText:focus {
+    outline: 2px solid #4a55ff;
+    background-color: rgba(255 255 255 / 0.2);
+  }
+
+  #generateBtn {
+    margin-top: 12px;
+    padding: 12px 24px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, #4a55ff, #869bff);
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    user-select: none;
+  }
+  #generateBtn:hover {
+    box-shadow: 0 12px 22px rgb(74 85 255 / 0.7);
+    transform: translateY(-3px);
+  }
+  #generateBtn:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  #output {
+    white-space: pre-line;
+    background: rgba(255 255 255 / 0.05);
+    border-radius: 12px;
+    padding: 20px 16px;
+    min-height: 140px;
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+    overflow-y: auto;
+  }
+
+  /* Attribution with icons from material icons */
+  .ref-links {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .ref-links a {
+    color: #aabbff;
+    font-weight: 700;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .material-icons-outlined {
+    font-size: 18px;
+    vertical-align: middle;
+  }
+
+  /* Responsive footer */
+  footer {
+    font-size: 0.9rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+
+</style>
+<!-- Material Icons from Google -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
+</head>
+<body>
+<header>
+  <a href="#" aria-label="Homepage" style="color:white; font-weight:700; font-size: 1.5rem; text-decoration:none;">MarkovTextGen</a>
+  <input type="checkbox" id="menu-toggle" aria-label="Toggle menu" />
+  <label class="hamburger" for="menu-toggle" role="button" aria-pressed="false" aria-expanded="false" tabindex="0">
+    <span></span><span></span><span></span>
+  </label>
+  <nav class="mobile-nav" role="navigation" aria-label="Mobile Navigation">
+    <a href="#input-section">Input</a>
+    <a href="#output-section">Output</a>
+    <a href="#about-section">About</a>
+  </nav>
+  <nav class="desktop-nav" role="navigation" aria-label="Desktop Navigation">
+    <a href="#input-section">Input</a>
+    <a href="#output-section">Output</a>
+    <a href="#about-section">About</a>
+  </nav>
+</header>
+
+<main class="container" role="main" aria-label="Markov Text Generation Application">
+
+  <section id="input-section" tabindex="0" aria-labelledby="input-title" aria-describedby="input-desc">
+    <h2 id="input-title">Enter Seed Text</h2>
+    <p id="input-desc">Type any sample text below to build a Markov chain model, then generate new text based on that input.</p>
+    <textarea id="inputText" name="inputText" placeholder="Paste or write some text here..." aria-required="true" aria-multiline="true"></textarea>
+    <button id="generateBtn" aria-describedby="output-section" type="button">Generate Text</button>
+  </section>
+
+  <section id="output-section" tabindex="0" aria-labelledby="output-title" aria-live="polite" aria-atomic="true" aria-describedby="output-desc">
+    <h2 id="output-title">Generated Text</h2>
+    <p id="output-desc">The generated text based on the Markov chain model built from your input.</p>
+    <pre id="output" aria-label="Generated text will appear here"></pre>
+  </section>
+
+  <section id="about-section" tabindex="0" aria-labelledby="about-title">
+    <h2 id="about-title">About This Task</h2>
+    <p>
+      Implement a simple text generation algorithm using Markov chains. This task involves creating a statistical model that predicts the probability of a character or word based on the previous one(s).
+    </p>
+    <div class="ref-links">
+      <a href="https://en.wikipedia.org/wiki/Markov_chain" target="_blank" rel="noopener noreferrer" aria-label="Wikipedia Markov Chain article">
+        <span class="material-icons-outlined">link</span>Wikipedia #1
+      </a>
+      <a href="https://towardsdatascience.com/markov-chains-and-text-generation-86a32d2aa48" target="_blank" rel="noopener noreferrer" aria-label="Towards Data Science article on Markov Chains">
+        <span class="material-icons-outlined">link</span>Towards Data Science #2
+      </a>
+    </div>
+    <div style="margin-top:24px; text-align:center;">
+      <img src="https://placehold.co/600x200/png?text=Markov+Chains+Text+Generation+Illustration" alt="Illustration representing Markov Chains for text generation with nodes and arrows on dark purple background" style="max-width:100%;border-radius:12px;box-shadow: 0 6px 18px rgba(0,0,0,0.5);" />
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>© 2024 Markov Text Generator. All rights reserved.</p>
+</footer>
+
+<script>
+  // Simple Markov chain text generator (word-based, order = 1)
+  function buildMarkovChain(text) {
+    // Split input text into words including punctuation as separate tokens
+    const words = text.match(/\S+/g) || [];
+    const markovChain = new Map();
+
+    for (let i = 0; i < words.length - 1; i++) {
+      const word = words[i].toLowerCase();
+      const nextWord = words[i + 1];
+      if (!markovChain.has(word)) {
+        markovChain.set(word, []);
+      }
+      markovChain.get(word).push(nextWord);
+    }
+
+    return markovChain;
+  }
+
+  function generateMarkovText(chain, length = 50) {
+    if (chain.size === 0) return "Please input some text with at least two words.";
+
+    // Pick a random starting word that starts with uppercase or sentence start possibility
+    const keys = Array.from(chain.keys());
+    let word = keys[Math.floor(Math.random() * keys.length)];
+
+    let output = [capitalize(word)];
+
+    for (let i = 1; i < length; i++) {
+      const nextWords = chain.get(word.toLowerCase());
+      if (!nextWords || nextWords.length === 0) break;
+
+      // Select a random next word
+      word = nextWords[Math.floor(Math.random() * nextWords.length)];
+
+      // Add word to output
+      output.push(word);
+    }
+
+    // Join words adjusting spacing and punctuation
+    return output
+      .join(' ')
+      .replace(/\s([.,!?;:])/g, '$1') // Remove space before punctuation
+      .replace(/\s'\s/g, "'") // Remove spaces around apostrophes
+      .replace(/^./, l => l.toUpperCase()); // Capitalize first letter
+  }
+
+  function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  document.getElementById('generateBtn').addEventListener('click', () => {
+    const inputText = document.getElementById('inputText').value.trim();
+    const outputEl = document.getElementById('output');
+
+    if (!inputText) {
+      outputEl.textContent = "Please enter some text to generate.";
+      return;
+    }
+
+    const markovChain = buildMarkovChain(inputText);
+    const generated = generateMarkovText(markovChain, 80);
+    outputEl.textContent = generated;
+  });
+
+  // Accessibility: close mobile nav when clicking nav links
+  const navLinks = document.querySelectorAll('nav.mobile-nav a');
+  const checkboxToggle = document.getElementById('menu-toggle');
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      checkboxToggle.checked = false;
+    });
+  });
+</script>
+</body>
+</html>
